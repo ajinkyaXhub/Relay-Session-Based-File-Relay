@@ -8,7 +8,8 @@ import os
 # - threads = 8 handles concurrent uploads, polling requests, and downloads
 #   within the single process.
 #
-port = os.environ.get("PORT", "5000")
+raw_port = os.environ.get("PORT", "").strip()
+port = raw_port if raw_port.isdigit() else "5000"
 bind = f"0.0.0.0:{port}"
 
 workers = 1

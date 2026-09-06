@@ -21,17 +21,31 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+def get_env_int(key, default):
+    """Safely parse integer from environment, handling None, empty strings, and invalid values."""
+    val = os.getenv(key)
+    if val is None or not str(val).strip():
+        return default
+    try:
+        return int(str(val).strip())
+    except (ValueError, TypeError):
+        return default
+
 # App Configuration
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", secrets.token_hex(32))
+secret_env = os.getenv("SECRET_KEY")
+app.secret_key = secret_env.strip() if secret_env and secret_env.strip() else secrets.token_hex(32)
 
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 5000))
+if not HOST or not HOST.strip():
+    HOST = "0.0.0.0"
+
+PORT = get_env_int("PORT", 5000)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
-SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", 20))
-MAX_CONTENT_LENGTH_MB = int(os.getenv("MAX_CONTENT_LENGTH_MB", 250))
-ENABLE_SESSION_PIN = os.getenv("ENABLE_SESSION_PIN", "false").lower() in ("true", "1", "yes")
-OPEN_BROWSER = os.getenv("OPEN_BROWSER", "false").lower() in ("true", "1", "yes")
+SESSION_TIMEOUT_MINUTES = get_env_int("SESSION_TIMEOUT_MINUTES", 20)
+MAX_CONTENT_LENGTH_MB = get_env_int("MAX_CONTENT_LENGTH_MB", 250)
+ENABLE_SESSION_PIN = (os.getenv("ENABLE_SESSION_PIN", "false") or "").strip().lower() in ("true", "1", "yes")
+OPEN_BROWSER = (os.getenv("OPEN_BROWSER", "false") or "").strip().lower() in ("true", "1", "yes")
 
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH_MB * 1024 * 1024
 
