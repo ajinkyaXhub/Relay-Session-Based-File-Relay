@@ -282,6 +282,11 @@ def index():
     session_data = create_session()
     return redirect(url_for("session_view", session_id=session_data["id"]))
 
+@app.route("/favicon.ico")
+def favicon():
+    """Serves the new logo favicon."""
+    return send_file(os.path.join(app.root_path, "static", "favicon.ico"), mimetype="image/x-icon")
+
 @app.route("/s/<session_id>")
 def session_view(session_id):
     """Renders the transfer interface for a specific isolated session."""

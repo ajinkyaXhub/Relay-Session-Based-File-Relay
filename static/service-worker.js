@@ -1,10 +1,12 @@
-const CACHE_NAME = 'relay-transfer-v2';
+const CACHE_NAME = 'relay-transfer-v3';
 const STATIC_ASSETS = [
   '/static/css/style.css',
   '/static/js/app.js',
   '/static/manifest.json',
   '/static/icon-192.png',
   '/static/icon-512.png',
+  '/static/new%20logo.png',
+  '/static/favicon.ico',
   '/static/offline.html'
 ];
 

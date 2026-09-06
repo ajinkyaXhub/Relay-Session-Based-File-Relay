@@ -3,6 +3,23 @@
  * Handles drag-and-drop, progress tracking, live polling, and session lifecycle.
  */
 
+// Capture PWA beforeinstallprompt event at window scope immediately
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (typeof window.triggerPwaPromptDisplay === 'function') {
+    window.triggerPwaPromptDisplay();
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const modal = document.getElementById('pwaInstallModal');
+  if (modal) modal.style.display = 'none';
+  sessionStorage.setItem('relay_pwa_installed', '1');
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   const config = window.__TRANSFER_CONFIG__ || {};
   const sessionId = config.sessionId;
@@ -436,4 +453,80 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('[Relay] Service worker registration ignored:', err);
       });
   }
+
+  // ---------------------------------------------------------------------------
+  // PWA Install Offer Popup Logic
+  // ---------------------------------------------------------------------------
+  const pwaModal = document.getElementById('pwaInstallModal');
+  const pwaTriggerInstallBtn = document.getElementById('pwaTriggerInstallBtn');
+  const pwaDismissBtn = document.getElementById('pwaDismissBtn');
+  const pwaCloseBtn = document.getElementById('pwaCloseBtn');
+  const pwaIosGuide = document.getElementById('pwaIosGuide');
+  const pwaInstallDesc = document.getElementById('pwaInstallDesc');
+
+  function initPwaInstallOffer() {
+    if (!pwaModal) return;
+
+    // Check if running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.navigator.standalone === true ||
+                         sessionStorage.getItem('relay_pwa_installed') === '1';
+
+    if (isStandalone) return;
+
+    // Check if user dismissed it in this browsing session
+    if (sessionStorage.getItem('relay_install_dismissed') === '1') return;
+
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    function displayPrompt() {
+      if (sessionStorage.getItem('relay_install_dismissed') === '1') return;
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) return;
+
+      if (isIos) {
+        if (pwaIosGuide) pwaIosGuide.style.display = 'flex';
+        if (pwaTriggerInstallBtn) pwaTriggerInstallBtn.style.display = 'none';
+        if (pwaInstallDesc) pwaInstallDesc.textContent = 'Install Relay on your iPhone/iPad for instant, one-tap file transfers:';
+      } else {
+        if (pwaIosGuide) pwaIosGuide.style.display = 'none';
+        if (pwaTriggerInstallBtn) pwaTriggerInstallBtn.style.display = 'inline-flex';
+      }
+
+      pwaModal.style.display = 'block';
+    }
+
+    window.triggerPwaPromptDisplay = displayPrompt;
+
+    // Show popup automatically after 1.5 seconds when opening app
+    setTimeout(displayPrompt, 1500);
+
+    function dismissInstall() {
+      pwaModal.style.display = 'none';
+      sessionStorage.setItem('relay_install_dismissed', '1');
+    }
+
+    if (pwaDismissBtn) pwaDismissBtn.addEventListener('click', dismissInstall);
+    if (pwaCloseBtn) pwaCloseBtn.addEventListener('click', dismissInstall);
+
+    if (pwaTriggerInstallBtn) {
+      pwaTriggerInstallBtn.addEventListener('click', async () => {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          const { outcome } = await deferredInstallPrompt.userChoice;
+          if (outcome === 'accepted') {
+            showToast('Thank you for installing Relay!', 'success');
+            pwaModal.style.display = 'none';
+          }
+          deferredInstallPrompt = null;
+        } else {
+          // If browser doesn't support deferred prompt (e.g. desktop menu / manual)
+          showToast('To install Relay: click the Install icon (⊕) in your browser address bar or menu.', 'info', 5000);
+          pwaModal.style.display = 'none';
+          sessionStorage.setItem('relay_install_dismissed', '1');
+        }
+      });
+    }
+  }
+
+  initPwaInstallOffer();
 });

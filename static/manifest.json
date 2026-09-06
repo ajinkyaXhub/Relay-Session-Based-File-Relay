@@ -1,21 +1,33 @@
 {
   "name": "Relay - Secure File Transfer",
   "short_name": "Relay",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "background_color": "#070b14",
+  "theme_color": "#070b14",
+  "description": "Fast, ephemeral, session-isolated peer-to-peer file transfer over Wi-Fi and web.",
+  "categories": ["utilities", "productivity"],
   "icons": [
-  {
-    "src": "/static/icon-192.png",
-    "sizes": "192x192",
-    "type": "image/png"
-  },
-  {
-    "src": "/static/icon-512.png",
-    "sizes": "512x512",
-    "type": "image/png"
-  }
-]
-
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/new%20logo.png",
+      "sizes": "2720x2720",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
