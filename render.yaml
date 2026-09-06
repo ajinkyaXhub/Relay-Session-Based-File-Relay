@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: relay
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+    numInstances: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: SESSION_TIMEOUT_MINUTES
+        value: "20"
+      - key: MAX_CONTENT_LENGTH_MB
+        value: "250"
+      - key: ENABLE_SESSION_PIN
+        value: "false"
+      - key: PUBLIC_BASE_URL
+        sync: false # Set this in Render Dashboard to your service URL (e.g. https://relay.onrender.com)

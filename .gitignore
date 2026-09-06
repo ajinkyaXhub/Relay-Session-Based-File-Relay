@@ -1,5 +1,23 @@
-uploads/*
-static/qr.png
-__pycache__/
-*.pyc
+# Environment variables
 .env
+.env.local
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary and upload directories
+uploads/
+*.zip
+temp/
+
+# Dynamic static files
+static/qr.png
+
+# Claude and editor local configs
+.claude/
+
+# Operating system files
+Thumbs.db
+.DS_Store
