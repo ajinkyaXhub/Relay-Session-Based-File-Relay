@@ -15,7 +15,7 @@ Relay is a secure, ephemeral peer-to-peer file transfer web app built with Flask
   - Background sweeper thread periodically (every 30s) prunes expired sessions and removes their directories from disk.
   - An `atexit` hook guarantees all active session directories are purged upon server shutdown.
   - "End Session" button allows users to immediately wipe files from disk on demand.
-  - Live countdown timer with "+15 Mins" extension capability.
+  - Live countdown timer with "+5 Mins" extension capability.
 - **Safe Single & Batch Downloads:**
   - Individual downloads preserve original filenames and prevent path traversal.
   - "Download All (.zip)" builds an archive outside the session folder (via in-memory buffer) so it never pollutes the upload directory.
@@ -60,7 +60,7 @@ The repository includes ready-to-deploy configuration:
    - **Plan:** Free or Starter (Set **Instances: 1**, do not enable autoscaling)
 4. Under **Environment Variables**, add:
    - `PUBLIC_BASE_URL`: Your Render service URL (e.g. `https://relay.onrender.com`)
-   - `SESSION_TIMEOUT_MINUTES`: `20` (optional)
+   - `SESSION_TIMEOUT_MINUTES`: `5` (optional)
    - `MAX_CONTENT_LENGTH_MB`: `250` (optional)
    - `SECRET_KEY`: A strong random string (e.g. run `python -c "import secrets; print(secrets.token_hex(32))"`)
 
@@ -83,7 +83,7 @@ The repository includes ready-to-deploy configuration:
 
 #### 2. Ephemeral Disk Caveat
 - Local disk storage on Render and Railway containers is ephemeral and will reset when the container restarts or redeploys.
-- Because this app handles temporary, short-lived file transfers (with default 20-minute expiry), ephemeral storage is ideal. Files are intended to be automatically cleaned up anyway.
+- Because this app handles temporary, short-lived file transfers (with default 5-minute expiry), ephemeral storage is ideal. Files are intended to be automatically cleaned up anyway.
 
 #### 3. Horizontal Scaling Path (Redis + Object Storage)
 If you wish to scale this application horizontally across multiple container instances in the future:
@@ -105,7 +105,7 @@ cp .env.example .env
 | `PUBLIC_BASE_URL` | *(empty)* | Public production URL (e.g. `https://your-app.onrender.com`). If unset, falls back to local LAN IP detection. |
 | `HOST` | `0.0.0.0` | IP address to bind server |
 | `PORT` | `5000` | Port to bind server (automatically provided by Render / Railway) |
-| `SESSION_TIMEOUT_MINUTES` | `20` | Session lifetime in minutes before auto-cleanup |
+| `SESSION_TIMEOUT_MINUTES` | `5` | Session lifetime in minutes before auto-cleanup |
 | `MAX_CONTENT_LENGTH_MB` | `250` | Maximum file upload size limit in MB |
 | `ENABLE_SESSION_PIN` | `false` | If `true`, requires devices to enter a 4-digit PIN |
 | `OPEN_BROWSER` | `false` | Automatically launch default browser on startup (local dev only) |

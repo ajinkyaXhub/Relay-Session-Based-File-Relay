@@ -42,7 +42,7 @@ if not HOST or not HOST.strip():
 
 PORT = get_env_int("PORT", 5000)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
-SESSION_TIMEOUT_MINUTES = get_env_int("SESSION_TIMEOUT_MINUTES", 20)
+SESSION_TIMEOUT_MINUTES = get_env_int("SESSION_TIMEOUT_MINUTES", 5)
 MAX_CONTENT_LENGTH_MB = get_env_int("MAX_CONTENT_LENGTH_MB", 250)
 ENABLE_SESSION_PIN = (os.getenv("ENABLE_SESSION_PIN", "false") or "").strip().lower() in ("true", "1", "yes")
 OPEN_BROWSER = (os.getenv("OPEN_BROWSER", "false") or "").strip().lower() in ("true", "1", "yes")
@@ -484,7 +484,7 @@ def download_all(session_id):
 
 @app.route("/s/<session_id>/extend", methods=["POST"])
 def extend_session(session_id):
-    """Extends the lifetime of a session by 15 minutes."""
+    """Extends the lifetime of a session by 5 minutes."""
     session_data = get_session(session_id)
     if not session_data:
         return jsonify({"error": "Session expired or not found."}), 404
@@ -494,9 +494,9 @@ def extend_session(session_id):
     if not submitted_csrf or submitted_csrf != session_data["csrf_token"]:
         return jsonify({"error": "Invalid CSRF token."}), 403
 
-    # Add 15 minutes, capped at max 2 hours from now
-    additional_seconds = 15 * 60
-    new_expires = min(time.time() + (120 * 60), session_data["expires_at"] + additional_seconds)
+    # Add 5 minutes, capped at max 60 minutes from now
+    additional_seconds = 5 * 60
+    new_expires = min(time.time() + (60 * 60), session_data["expires_at"] + additional_seconds)
     session_data["expires_at"] = new_expires
 
     remaining_seconds = max(0, int(new_expires - time.time()))

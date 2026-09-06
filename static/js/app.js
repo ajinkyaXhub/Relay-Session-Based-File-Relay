@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (expiryTimerDisplay) expiryTimerDisplay.textContent = formatTime(remainingSeconds);
           if (expiryBox) expiryBox.classList.remove('warning');
           warnedExpiringSoon = false;
-          showToast("Session extended by 15 minutes!", "success");
+          showToast("Session extended by 5 minutes!", "success");
         } else {
           showToast(data.error || "Failed to extend session.", "error");
         }
