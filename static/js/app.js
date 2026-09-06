@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Drag & Drop File Upload with Progress Tracking
   // ---------------------------------------------------------------------------
   if (dropzone && fileInput) {
-    dropzone.addEventListener('click', () => fileInput.click());
+    // Native <label for="fileInput"> triggers file input directly across all mobile & desktop browsers
 
     ['dragenter', 'dragover'].forEach(eventName => {
       dropzone.addEventListener(eventName, (e) => {

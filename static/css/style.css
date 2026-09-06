@@ -232,8 +232,22 @@ body {
   margin-top: 8px;
 }
 
+@media (max-width: 959px) {
+  .transfer-grid {
+    display: flex;
+    flex-direction: column;
+  }
+  .main-workspace {
+    order: 1;
+  }
+  .session-panel {
+    order: 2;
+  }
+}
+
 @media (min-width: 960px) {
   .transfer-grid {
+    display: grid;
     grid-template-columns: 360px 1fr;
     align-items: start;
   }
@@ -509,7 +523,16 @@ body {
 }
 
 .file-input-hidden {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+  opacity: 0;
 }
 
 /* ---------- ACTIVE UPLOADS QUEUE ---------- */

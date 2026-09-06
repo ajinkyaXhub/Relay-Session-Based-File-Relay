@@ -83,11 +83,26 @@ def get_local_ip():
 def get_session_url(session_id):
     """Constructs the full shareable URL for a session.
     
-    In production (Render/Railway), uses PUBLIC_BASE_URL if configured.
-    Falls back to local LAN IP detection only in local/offline environments.
+    1. In production, if PUBLIC_BASE_URL is explicitly set, uses it.
+    2. Otherwise, automatically detects the public host and scheme from the incoming
+       HTTP request headers (Render, Railway, reverse proxies, or custom domains).
+    3. If accessed locally via localhost / 127.0.0.1, falls back to LAN IP detection.
     """
     if PUBLIC_BASE_URL:
         return f"{PUBLIC_BASE_URL}/s/{session_id}"
+
+    # Auto-detect public URL from request headers (Render, Railway, custom domains)
+    try:
+        if request:
+            proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "http").strip()
+            host = (request.headers.get("X-Forwarded-Host") or request.host or "").strip()
+            if host:
+                host_name = host.split(":")[0].strip().lower()
+                # If accessed via a real domain or network address (not loopback), use it directly
+                if host_name not in ("localhost", "127.0.0.1", "0.0.0.0"):
+                    return f"{proto}://{host}/s/{session_id}"
+    except Exception:
+        pass
 
     local_ip = get_local_ip()
     port_str = f":{PORT}" if PORT not in (80, 443) else ""
