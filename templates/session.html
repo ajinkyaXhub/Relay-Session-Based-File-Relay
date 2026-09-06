@@ -10,7 +10,7 @@
 
   <link rel="manifest" href="/static/manifest.json">
   <link rel="icon" type="image/png" href="/static/icon-192.png">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.1">
 </head>
 <body>
 
@@ -63,7 +63,7 @@
           <div class="expiry-box" id="expiryBox">
             <div class="expiry-info">
               <span class="expiry-label">Expires in</span>
-              <span class="expiry-time" id="expiryTimerDisplay">--:--</span>
+              <span class="expiry-time" id="expiryTimerDisplay">{{ "%02d:%02d" | format(remaining_seconds // 60, remaining_seconds % 60) }}</span>
             </div>
             <button class="btn btn-warning btn-sm" id="extendBtn" title="Add 5 minutes to session">
               +5 Mins
@@ -264,6 +264,6 @@
       initialFiles: {{ files | tojson }}
     };
   </script>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=2.1"></script>
 </body>
 </html>

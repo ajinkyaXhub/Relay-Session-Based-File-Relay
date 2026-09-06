@@ -161,6 +161,13 @@ def get_session(session_id):
         session_data = SESSIONS.get(session_id)
         if not session_data:
             return None
+
+        # Clamp existing session lifetime to at most SESSION_TIMEOUT_MINUTES (5 min) unless explicitly extended
+        max_remaining = SESSION_TIMEOUT_MINUTES * 60
+        if not session_data.get("extended", False):
+            if session_data["expires_at"] > now + max_remaining:
+                session_data["expires_at"] = now + max_remaining
+
         if now > session_data["expires_at"]:
             # Session expired, delete folder and entry
             _cleanup_session_dir(session_data["folder"])
@@ -214,6 +221,12 @@ def sweep_expired_sessions():
             now = time.time()
             expired_folders = []
             with sessions_lock:
+                # Clamp unextended sessions to at most SESSION_TIMEOUT_MINUTES (5 min)
+                max_lifetime = SESSION_TIMEOUT_MINUTES * 60
+                for sid, s in SESSIONS.items():
+                    if not s.get("extended", False) and s["expires_at"] > now + max_lifetime:
+                        s["expires_at"] = now + max_lifetime
+
                 expired_ids = [
                     sid for sid, s in SESSIONS.items()
                     if now > s["expires_at"]
@@ -498,6 +511,7 @@ def extend_session(session_id):
     additional_seconds = 5 * 60
     new_expires = min(time.time() + (60 * 60), session_data["expires_at"] + additional_seconds)
     session_data["expires_at"] = new_expires
+    session_data["extended"] = True
 
     remaining_seconds = max(0, int(new_expires - time.time()))
 

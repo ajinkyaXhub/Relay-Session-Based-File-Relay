@@ -7,7 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const config = window.__TRANSFER_CONFIG__ || {};
   const sessionId = config.sessionId;
   const csrfToken = config.csrfToken;
-  let remainingSeconds = config.remainingSeconds || 1200;
+  let remainingSeconds = (typeof config.remainingSeconds === 'number' && config.remainingSeconds >= 0)
+    ? config.remainingSeconds
+    : 300; // 5 minutes default (300 seconds), never 1200 (20 minutes)
   const requiresPin = config.requiresPin || false;
 
   // DOM Elements

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'relay-transfer-v1';
+const CACHE_NAME = 'relay-transfer-v2';
 const STATIC_ASSETS = [
   '/static/css/style.css',
   '/static/js/app.js',
