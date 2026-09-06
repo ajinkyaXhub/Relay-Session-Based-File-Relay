@@ -134,28 +134,31 @@
 
         <!-- Upload Dropzone Card -->
         <div class="glass-card">
-          <label for="fileInput" class="dropzone" id="dropzone">
-            <div class="dropzone-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-            </div>
-            <h3 class="dropzone-title">Send Files from this Device</h3>
-            <p class="dropzone-subtitle">Tap below or drag files here to send</p>
-            <div style="margin: 14px 0;">
-              <span class="btn btn-primary" style="pointer-events: none; padding: 10px 24px; font-size: 0.95rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Choose Files to Send
-              </span>
-            </div>
-            <span class="dropzone-badge">Max {{ max_upload_mb }} MB per batch • All file types supported</span>
+          <div class="dropzone" id="dropzone">
             <input type="file" id="fileInput" class="file-input-hidden" multiple>
-          </label>
+            <label for="fileInput" class="dropzone-click-overlay" aria-label="Choose files to send"></label>
+            <div class="dropzone-content">
+              <div class="dropzone-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <h3 class="dropzone-title">Send Files from this Device</h3>
+              <p class="dropzone-subtitle">Tap below or drag & drop files here to send</p>
+              <div style="margin: 14px 0;">
+                <span class="btn btn-primary" style="padding: 10px 24px; font-size: 0.95rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Choose Files to Send
+                </span>
+              </div>
+              <span class="dropzone-badge">Max {{ max_upload_mb }} MB per batch • All file types supported</span>
+            </div>
+          </div>
 
           <!-- Active Upload Queue Progress Cards -->
           <div class="upload-queue" id="uploadQueue"></div>
