@@ -1,7 +1,8 @@
-const CACHE_NAME = 'relay-transfer-v3';
+const CACHE_NAME = 'relay-transfer-v4';
 const STATIC_ASSETS = [
   '/static/css/style.css',
   '/static/js/app.js',
+  '/static/js/jsqr.min.js',
   '/static/manifest.json',
   '/static/icon-192.png',
   '/static/icon-512.png',

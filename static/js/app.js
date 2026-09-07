@@ -529,4 +529,447 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initPwaInstallOffer();
+
+  // ---------------------------------------------------------------------------
+  // In-App Camera QR Code Scanner Controller
+  // ---------------------------------------------------------------------------
+  function initQrScanner() {
+    const scannerModal = document.getElementById('qrScannerModal');
+    const openScannerBtn = document.getElementById('openScannerBtn');
+    const cardScanQrBtn = document.getElementById('cardScanQrBtn');
+    const cornerScanQrBtn = document.getElementById('cornerScanQrBtn');
+    const bannerScanQrBtn = document.getElementById('bannerScanQrBtn');
+    const dropzoneScanQrBtn = document.getElementById('dropzoneScanQrBtn');
+    const closeScannerModalBtn = document.getElementById('closeScannerModalBtn');
+    const scannerVideo = document.getElementById('scannerVideo');
+    const scannerCanvas = document.getElementById('scannerCanvas');
+    const scannerReticle = document.getElementById('scannerReticle');
+    const scannerLoadingState = document.getElementById('scannerLoadingState');
+    const scannerStatusText = document.getElementById('scannerStatusText');
+    const scannerFallbackSnapBtn = document.getElementById('scannerFallbackSnapBtn');
+    const scannerTorchBtn = document.getElementById('scannerTorchBtn');
+    const scannerFlipCameraBtn = document.getElementById('scannerFlipCameraBtn');
+    const qrCameraSnapInput = document.getElementById('qrCameraSnapInput');
+    const qrImageUploadInput = document.getElementById('qrImageUploadInput');
+
+    if (!scannerModal) return;
+
+    let mediaStream = null;
+    let videoTrack = null;
+    let scanAnimationId = null;
+    let currentFacingMode = 'environment';
+    let availableCamerasCount = 0;
+    let isProcessingScan = false;
+    let isTorchOn = false;
+    let lastFrameTime = 0;
+    const SCAN_INTERVAL_MS = 85; // Throttle to ~12 checks/sec for optimal responsiveness and battery preservation
+
+    // Cache native BarcodeDetector if supported by the browser (Chrome Android, etc.)
+    let nativeDetector = null;
+    if ('BarcodeDetector' in window) {
+      try {
+        nativeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch (e) {
+        nativeDetector = null;
+      }
+    }
+
+    // Detect if device has multiple cameras (front & back)
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        const videoInputs = devices.filter(d => d.kind === 'videoinput');
+        availableCamerasCount = videoInputs.length;
+        if (availableCamerasCount > 1 && scannerFlipCameraBtn) {
+          scannerFlipCameraBtn.style.display = 'flex';
+        }
+      }).catch(() => {});
+    }
+
+    // Play subtle chime on scan success using Web Audio API
+    function playSuccessSound() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const ctx = new AudioContextClass();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      } catch (e) {}
+    }
+
+    function triggerHaptic() {
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate([40, 30, 80]);
+        } catch (e) {}
+      }
+    }
+
+    // Update Torch button visibility based on active track capabilities
+    function updateTorchSupport() {
+      if (scannerTorchBtn) {
+        if (videoTrack && typeof videoTrack.getCapabilities === 'function') {
+          try {
+            const caps = videoTrack.getCapabilities();
+            if (caps && caps.torch) {
+              scannerTorchBtn.style.display = 'flex';
+              return;
+            }
+          } catch (e) {}
+        }
+        scannerTorchBtn.style.display = 'none';
+        isTorchOn = false;
+        scannerTorchBtn.classList.remove('active');
+      }
+    }
+
+    if (scannerTorchBtn) {
+      scannerTorchBtn.addEventListener('click', async () => {
+        if (!videoTrack) return;
+        try {
+          isTorchOn = !isTorchOn;
+          await videoTrack.applyConstraints({
+            advanced: [{ torch: isTorchOn }]
+          });
+          scannerTorchBtn.classList.toggle('active', isTorchOn);
+        } catch (e) {
+          console.warn('Torch toggle error:', e);
+        }
+      });
+    }
+
+    async function handleDecodedUrl(decodedText) {
+      if (isProcessingScan || !decodedText) return;
+      isProcessingScan = true;
+
+      // Animate reticle and provide sensory feedback
+      if (scannerReticle) scannerReticle.classList.add('success');
+      playSuccessSound();
+      triggerHaptic();
+
+      // Clean up camera stream
+      stopCamera();
+
+      let targetUrl = decodedText.trim();
+
+      // Check if the user scanned their own session
+      if (sessionId) {
+        if (targetUrl.includes(sessionId) || targetUrl === sessionId) {
+          showToast('You are already connected to this transfer session!', 'info', 4000);
+          closeScanner();
+          return;
+        }
+      }
+
+      showToast('Relay QR code recognized! Connecting...', 'success', 3000);
+
+      setTimeout(() => {
+        try {
+          // Smart loopback rewrite: if scanned URL contains localhost/127.0.0.1,
+          // adapt to current phone origin so connection on LAN works smoothly
+          if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+            const parsed = new URL(targetUrl);
+            if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '0.0.0.0') {
+              targetUrl = `${window.location.protocol}//${window.location.host}${parsed.pathname}${parsed.search}`;
+            }
+            window.location.href = targetUrl;
+          } else if (targetUrl.startsWith('/s/')) {
+            window.location.href = targetUrl;
+          } else if (/^[a-f0-9]{32}$/i.test(targetUrl)) {
+            window.location.href = `/s/${targetUrl}`;
+          } else {
+            showToast(`Scanned: ${targetUrl}`, 'info', 4000);
+            closeScanner();
+          }
+        } catch (err) {
+          window.location.href = targetUrl;
+        }
+      }, 500);
+    }
+
+    async function startCamera() {
+      isProcessingScan = false;
+      isTorchOn = false;
+      if (scannerTorchBtn) {
+        scannerTorchBtn.style.display = 'none';
+        scannerTorchBtn.classList.remove('active');
+      }
+      if (scannerReticle) scannerReticle.classList.remove('success');
+      if (scannerLoadingState) {
+        scannerLoadingState.style.display = 'flex';
+        if (scannerStatusText) scannerStatusText.textContent = 'Starting camera...';
+      }
+      if (scannerFallbackSnapBtn) scannerFallbackSnapBtn.style.display = 'none';
+
+      // Check for live camera stream support
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (scannerLoadingState && scannerStatusText) {
+          scannerStatusText.textContent = 'Live video streaming is not available over plain HTTP. Tap below to snap a photo directly with your camera:';
+        }
+        if (scannerFallbackSnapBtn) scannerFallbackSnapBtn.style.display = 'inline-flex';
+        return;
+      }
+
+      // Multi-tier constraint fallback to guarantee compatibility on all mobile browsers
+      const constraintTiers = [
+        { video: { facingMode: { ideal: currentFacingMode }, width: { ideal: 1280 } }, audio: false },
+        { video: { facingMode: { ideal: currentFacingMode } }, audio: false },
+        { video: true, audio: false }
+      ];
+
+      let stream = null;
+      let lastError = null;
+
+      for (const constraints of constraintTiers) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          if (stream) break;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      if (!stream) {
+        console.warn('Camera access error:', lastError);
+        if (scannerLoadingState && scannerStatusText) {
+          scannerStatusText.textContent = 'Camera permission denied or camera unavailable. You can snap a photo of the QR code below:';
+        }
+        if (scannerFallbackSnapBtn) scannerFallbackSnapBtn.style.display = 'inline-flex';
+        return;
+      }
+
+      mediaStream = stream;
+      videoTrack = mediaStream.getVideoTracks()[0] || null;
+
+      if (scannerVideo) {
+        scannerVideo.srcObject = mediaStream;
+        scannerVideo.setAttribute('playsinline', 'true');
+        scannerVideo.setAttribute('webkit-playsinline', 'true');
+        scannerVideo.muted = true;
+        try {
+          await scannerVideo.play();
+        } catch (e) {
+          console.warn('Video play error:', e);
+        }
+      }
+
+      if (scannerLoadingState) scannerLoadingState.style.display = 'none';
+      updateTorchSupport();
+
+      lastFrameTime = performance.now();
+      scanAnimationId = requestAnimationFrame(scanVideoFrame);
+    }
+
+    function stopCamera() {
+      if (scanAnimationId) {
+        cancelAnimationFrame(scanAnimationId);
+        scanAnimationId = null;
+      }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => {
+          try { track.stop(); } catch (e) {}
+        });
+        mediaStream = null;
+      }
+      videoTrack = null;
+      if (scannerVideo) {
+        scannerVideo.srcObject = null;
+      }
+    }
+
+    async function scanVideoFrame(timestamp) {
+      if (isProcessingScan || !scannerModal || scannerModal.style.display === 'none') {
+        return;
+      }
+
+      if (scannerVideo && scannerVideo.readyState >= 2 && scannerVideo.videoWidth > 0) {
+        if (!timestamp || timestamp - lastFrameTime >= SCAN_INTERVAL_MS) {
+          lastFrameTime = timestamp || performance.now();
+          const width = scannerVideo.videoWidth;
+          const height = scannerVideo.videoHeight;
+
+          // 1. Try native BarcodeDetector API first (hardware accelerated)
+          if (nativeDetector) {
+            try {
+              const barcodes = await nativeDetector.detect(scannerVideo);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                handleDecodedUrl(barcodes[0].rawValue);
+                return;
+              }
+            } catch (e) {}
+          }
+
+          // 2. High-speed jsQR fallback with resolution downsampling
+          if (typeof window.jsQR === 'function' && scannerCanvas) {
+            // Downscale frame to max 480px to ensure instant, lag-free scanning on mobile
+            const maxDim = 480;
+            let targetW = width;
+            let targetH = height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                targetW = maxDim;
+                targetH = Math.round((height / width) * maxDim);
+              } else {
+                targetH = maxDim;
+                targetW = Math.round((width / height) * maxDim);
+              }
+            }
+
+            if (scannerCanvas.width !== targetW) scannerCanvas.width = targetW;
+            if (scannerCanvas.height !== targetH) scannerCanvas.height = targetH;
+
+            const ctx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(scannerVideo, 0, 0, targetW, targetH);
+
+            try {
+              const imageData = ctx.getImageData(0, 0, targetW, targetH);
+              const qrCode = window.jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert'
+              });
+
+              if (qrCode && qrCode.data) {
+                handleDecodedUrl(qrCode.data);
+                return;
+              }
+            } catch (err) {}
+          }
+        }
+      }
+
+      scanAnimationId = requestAnimationFrame(scanVideoFrame);
+    }
+
+    function openScanner() {
+      scannerModal.style.display = 'flex';
+      startCamera();
+    }
+
+    function closeScanner() {
+      stopCamera();
+      scannerModal.style.display = 'none';
+    }
+
+    // Bind all scanner trigger buttons across the application
+    if (openScannerBtn) openScannerBtn.addEventListener('click', openScanner);
+    if (cardScanQrBtn) cardScanQrBtn.addEventListener('click', openScanner);
+    if (cornerScanQrBtn) cornerScanQrBtn.addEventListener('click', openScanner);
+    if (bannerScanQrBtn) bannerScanQrBtn.addEventListener('click', openScanner);
+    if (dropzoneScanQrBtn) dropzoneScanQrBtn.addEventListener('click', openScanner);
+    if (closeScannerModalBtn) closeScannerModalBtn.addEventListener('click', closeScanner);
+
+    scannerModal.addEventListener('click', (e) => {
+      if (e.target === scannerModal) {
+        closeScanner();
+      }
+    });
+
+    if (scannerFlipCameraBtn) {
+      scannerFlipCameraBtn.addEventListener('click', () => {
+        currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+        stopCamera();
+        startCamera();
+      });
+    }
+
+    // Direct fallback button inside loading state to trigger camera snap
+    if (scannerFallbackSnapBtn && qrCameraSnapInput) {
+      scannerFallbackSnapBtn.addEventListener('click', () => {
+        qrCameraSnapInput.click();
+      });
+    }
+
+    // Process photo or screenshot image file with jsQR and BarcodeDetector
+    function decodeImageFile(file) {
+      if (!file) return;
+
+      if (scannerLoadingState) {
+        scannerLoadingState.style.display = 'flex';
+        if (scannerStatusText) scannerStatusText.textContent = 'Decoding QR code from photo...';
+        if (scannerFallbackSnapBtn) scannerFallbackSnapBtn.style.display = 'none';
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = async () => {
+          // 1. Try native BarcodeDetector
+          if (nativeDetector) {
+            try {
+              const barcodes = await nativeDetector.detect(img);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                handleDecodedUrl(barcodes[0].rawValue);
+                return;
+              }
+            } catch (err) {}
+          }
+
+          // 2. jsQR with downsampling for huge photos (e.g. 12-48MP smartphone camera shots)
+          if (typeof window.jsQR === 'function') {
+            const maxDim = 1000;
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h / w) * maxDim);
+                w = maxDim;
+              } else {
+                w = Math.round((w / h) * maxDim);
+                h = maxDim;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, w, h);
+
+            try {
+              const imgData = ctx.getImageData(0, 0, w, h);
+              const code = window.jsQR(imgData.data, imgData.width, imgData.height, {
+                inversionAttempts: 'attemptBoth'
+              });
+              if (code && code.data) {
+                handleDecodedUrl(code.data);
+                return;
+              }
+            } catch (err) {}
+          }
+
+          if (scannerLoadingState) {
+            scannerLoadingState.style.display = 'none';
+          }
+          showToast('No readable QR code found in this photo. Please ensure it is clear and in focus.', 'error', 4500);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    if (qrCameraSnapInput) {
+      qrCameraSnapInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) decodeImageFile(file);
+        qrCameraSnapInput.value = '';
+      });
+    }
+
+    if (qrImageUploadInput) {
+      qrImageUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) decodeImageFile(file);
+        qrImageUploadInput.value = '';
+      });
+    }
+  }
+
+  initQrScanner();
 });

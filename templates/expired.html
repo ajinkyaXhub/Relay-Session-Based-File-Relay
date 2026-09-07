@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="/static/new%20logo.png">
   <link rel="shortcut icon" href="/static/new%20logo.png">
   <link rel="apple-touch-icon" href="/static/new%20logo.png">
-  <link rel="stylesheet" href="/static/css/style.css?v=2.2">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.3">
   <style>
     .expired-container {
       max-width: 520px;
@@ -65,6 +65,18 @@
         <span class="brand-title">Relay</span>
       </div>
     </a>
+    <div class="nav-actions">
+      <button class="btn btn-secondary btn-sm" id="openScannerBtn" title="Scan another device's Relay QR code">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+          <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+          <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+          <line x1="7" y1="12" x2="17" y2="12"></line>
+        </svg>
+        <span>Scan QR</span>
+      </button>
+    </div>
   </header>
 
   <div class="expired-container">
@@ -167,6 +179,113 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=2.2"></script>
+  <!-- Corner Floating QR Scanner Button -->
+  <button class="corner-scanner-btn" id="cornerScanQrBtn" title="Scan QR Code to Join Transfer">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+      <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+      <line x1="7" y1="12" x2="17" y2="12"></line>
+    </svg>
+    <span>Scan QR</span>
+  </button>
+
+  <!-- QR Camera Scanner Modal -->
+  <div class="modal-backdrop" id="qrScannerModal" style="display: none;">
+    <div class="modal-content scanner-modal-card">
+      <div class="scanner-header">
+        <div class="scanner-title-group">
+          <div class="scanner-icon-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+              <line x1="7" y1="12" x2="17" y2="12"></line>
+            </svg>
+          </div>
+          <div>
+            <h3 style="font-weight: 800; color: var(--text-primary); margin: 0; font-size: 1.15rem;">Scan Transfer QR</h3>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 2px 0 0 0;">Point camera at another device's Relay QR code</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeScannerModalBtn" aria-label="Close Scanner">&times;</button>
+      </div>
+
+      <!-- Camera Viewfinder Viewport -->
+      <div class="scanner-viewport-wrapper">
+        <video id="scannerVideo" playsinline autoplay muted class="scanner-video"></video>
+        <canvas id="scannerCanvas" style="display: none;"></canvas>
+
+        <!-- Viewfinder Reticle Overlay -->
+        <div class="scanner-reticle" id="scannerReticle">
+          <div class="reticle-corner top-left"></div>
+          <div class="reticle-corner top-right"></div>
+          <div class="reticle-corner bottom-left"></div>
+          <div class="reticle-corner bottom-right"></div>
+          <div class="scanner-laser"></div>
+        </div>
+
+        <!-- Camera Loading / Status State -->
+        <div class="scanner-loading-state" id="scannerLoadingState">
+          <div class="loading-spinner"></div>
+          <p id="scannerStatusText" style="margin: 0; text-align: center; max-width: 280px;">Requesting camera access...</p>
+          <button type="button" class="btn btn-primary btn-sm" id="scannerFallbackSnapBtn" style="display: none; margin-top: 8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            Open Camera to Snap QR
+          </button>
+        </div>
+
+        <!-- Viewfinder Quick Controls (Torch + Flip) -->
+        <div class="scanner-controls-overlay">
+          <button type="button" class="scanner-control-btn" id="scannerTorchBtn" style="display: none;" title="Toggle Flashlight">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </button>
+          <button type="button" class="scanner-control-btn" id="scannerFlipCameraBtn" style="display: none;" title="Flip Camera">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 16V8a2 2 0 0 0-2-2h-3l-2-2h-6l-2 2H3a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"></path>
+              <circle cx="10" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer & Alternative Direct Camera Snap / Image Upload -->
+      <div class="scanner-footer">
+        <div class="scanner-action-buttons">
+          <label for="qrCameraSnapInput" class="btn btn-secondary btn-sm scanner-action-btn" title="Open native phone camera to photograph QR">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            Snap Photo
+          </label>
+          <input type="file" id="qrCameraSnapInput" accept="image/*" capture="environment" style="display: none;">
+
+          <label for="qrImageUploadInput" class="btn btn-secondary btn-sm scanner-action-btn" title="Select QR photo or screenshot from gallery">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            From Gallery
+          </label>
+          <input type="file" id="qrImageUploadInput" accept="image/*" style="display: none;">
+        </div>
+        <p class="scanner-tip">Align the QR code within the frame or take a photo to join instantly</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/js/jsqr.min.js"></script>
+  <script src="/static/js/app.js?v=2.3"></script>
 </body>
 </html>
